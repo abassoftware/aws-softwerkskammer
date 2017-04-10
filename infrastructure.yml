@@ -1,0 +1,136 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'The base AWS infrastructure'
+Resources:
+  VPC:
+    Type: 'AWS::EC2::VPC'
+    Properties:
+      EnableDnsSupport: 'true'
+      EnableDnsHostnames: 'true'
+      # 255.255.0.0 -> 10.0.0.0 - 10.0.255.255
+      CidrBlock: 10.0.0.0/16
+  CommonSubnetA:
+    Type: 'AWS::EC2::Subnet'
+    Properties:
+      AvailabilityZone: !Sub ${AWS::Region}a
+      #  10.0.64.0 - 10.0.79.255
+      CidrBlock: 10.0.64.0/20
+      MapPublicIpOnLaunch: 'true'
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: CommonSubnetA
+  CommonSubnetB:
+    Type: 'AWS::EC2::Subnet'
+    Properties:
+      AvailabilityZone: !Sub ${AWS::Region}b
+      #  10.0.80.0 - 10.0.95.255
+      CidrBlock: 10.0.80.0/20
+      MapPublicIpOnLaunch: 'true'
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: CommonSubnetB
+
+  InternetGateway:
+      Type: 'AWS::EC2::InternetGateway'
+      Properties:
+        Tags:
+          - Key: Name
+            Value: IGW
+  GatewayToInternet:
+    Type: 'AWS::EC2::VPCGatewayAttachment'
+    Properties:
+      VpcId: !Ref VPC
+      InternetGatewayId: !Ref InternetGateway
+
+  #
+  # Routing for public subnets
+  #
+  PublicRouteTable:
+    Type: 'AWS::EC2::RouteTable'
+    Properties:
+      VpcId: !Ref VPC
+  PublicRoute:
+    Type: 'AWS::EC2::Route'
+    DependsOn: GatewayToInternet
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+  CommonSubnetARouteTableAssociation:
+    Type: 'AWS::EC2::SubnetRouteTableAssociation'
+    Properties:
+      SubnetId: !Ref CommonSubnetA
+      RouteTableId: !Ref PublicRouteTable
+  CommonSubnetBRouteTableAssociation:
+    Type: 'AWS::EC2::SubnetRouteTableAssociation'
+    Properties:
+      SubnetId: !Ref CommonSubnetB
+      RouteTableId: !Ref PublicRouteTable
+
+  #
+  # Routing for private subnet in zone a
+  #
+  NatGatewayA:
+    DependsOn: GatewayToInternet
+    Type: AWS::EC2::NatGateway
+    Properties:
+      AllocationId: !GetAtt [PublicNatIpA, AllocationId]
+      SubnetId: !Ref CommonSubnetA
+  PublicNatIpA:
+    Type: AWS::EC2::EIP
+    Properties:
+      Domain: vpc
+
+  PrivateRouteTableA:
+    Type: 'AWS::EC2::RouteTable'
+    Properties:
+      VpcId: !Ref VPC
+  PrivateRouteA:
+    Type: 'AWS::EC2::Route'
+    Properties:
+      RouteTableId: !Ref PrivateRouteTableA
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref NatGatewayA
+
+  #
+  # Routing for private subnet in zone b
+  #
+  NatGatewayB:
+    DependsOn: GatewayToInternet
+    Type: AWS::EC2::NatGateway
+    Properties:
+      AllocationId: !GetAtt [PublicNatIpB, AllocationId]
+      SubnetId: !Ref CommonSubnetA
+  PublicNatIpB:
+    Type: AWS::EC2::EIP
+    Properties:
+      Domain: vpc
+
+  PrivateRouteTableB:
+    Type: 'AWS::EC2::RouteTable'
+    Properties:
+      VpcId: !Ref VPC
+  PrivateRouteB:
+    Type: 'AWS::EC2::Route'
+    Properties:
+      RouteTableId: !Ref PrivateRouteTableB
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref NatGatewayB
+
+Outputs:
+  VPC:
+    Description: The id of the VPC
+    Value: !Ref VPC
+    Export:
+      Name: VPC
+  CommonSubnetA:
+    Description: The id of the common subnet in zone A
+    Value: !Ref CommonSubnetA
+    Export:
+      Name: CommonSubnetA
+  CommonSubnetB:
+    Description: The id of the common subnet in zone B
+    Value: !Ref CommonSubnetB
+    Export:
+      Name: CommonSubnetB
