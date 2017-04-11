@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: 'The AWS stack for the a simple auto scaling group'
+Description: 'The AWS stack for the a simple prepared auto scaling group'
 Mappings:
   RegionMapping:
     us-east-1:
@@ -77,7 +77,7 @@ Resources:
     Properties:
       GroupDescription: Enable SSH access from anywhere
       VpcId:
-        "Fn::ImportValue": VPC
+        "Fn::ImportValue": VPC-prepared
       SecurityGroupIngress:
         - IpProtocol: tcp
           FromPort: '22'
@@ -129,11 +129,11 @@ Resources:
           Value: Simple
           PropagateAtLaunch: true
       VPCZoneIdentifier:
-        - "Fn::ImportValue": CommonSubnetA
-        - "Fn::ImportValue": CommonSubnetB
+        - "Fn::ImportValue": CommonSubnetA-prepared
+        - "Fn::ImportValue": CommonSubnetB-prepared
 Outputs:
   SimpleInstanceSecurityGroup:
     Description: The security group of the Simple
     Value: !Ref SimpleInstanceSecurityGroup
     Export:
-      Name: SimpleInstanceSecurityGroup
+      Name: SimpleInstanceSecurityGroup-prepared

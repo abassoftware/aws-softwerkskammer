@@ -11,18 +11,18 @@ source_profile = default
 
 Create the infrastructure stack:
 ```
-aws cloudformation create-stack --capabilities CAPABILITY_IAM --stack-name infrastructure --template-body file://infrastructure.yml --region eu-central-1 --profile softwerkskammer
+aws cloudformation create-stack --capabilities CAPABILITY_IAM --stack-name prepared-infrastructure --template-body file://infrastructure.yml --region eu-central-1 --profile softwerkskammer
 ```
 Or update:
 ```
-aws cloudformation update-stack --capabilities CAPABILITY_IAM --stack-name infrastructure --template-body file://infrastructure.yml --region eu-central-1 --profile softwerkskammer
+aws cloudformation update-stack --capabilities CAPABILITY_IAM --stack-name prepared-infrastructure --template-body file://infrastructure.yml --region eu-central-1 --profile softwerkskammer
 ```
 
 Create a simple auto scaling group:
 ```
-aws cloudformation create-stack --capabilities CAPABILITY_IAM --stack-name autoscalinggroup --template-body file://simpleAutoscalingGroup.yml --region eu-central-1 --profile softwerkskammer
+aws cloudformation create-stack --capabilities CAPABILITY_IAM --stack-name prepared-autoscalinggroup --template-body file://simpleAutoscalingGroup.yml --region eu-central-1 --profile softwerkskammer
 ```
 Or update:
 ```
-aws cloudformation update-stack --capabilities CAPABILITY_IAM --stack-name autoscalinggroup --template-body file://simpleAutoscalingGroup.yml --region eu-central-1 --profile softwerkskammer
+aws cloudformation update-stack --capabilities CAPABILITY_IAM --stack-name prepared-autoscalinggroup --template-body file://simpleAutoscalingGroup.yml --region eu-central-1 --profile softwerkskammer
 ```

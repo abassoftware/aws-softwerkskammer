@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: 'The base AWS infrastructure'
+Description: 'The base AWS prepared-infrastructure'
 Resources:
   VPC:
     Type: 'AWS::EC2::VPC'
@@ -123,14 +123,14 @@ Outputs:
     Description: The id of the VPC
     Value: !Ref VPC
     Export:
-      Name: VPC
+      Name: VPC-prepared
   CommonSubnetA:
     Description: The id of the common subnet in zone A
     Value: !Ref CommonSubnetA
     Export:
-      Name: CommonSubnetA
+      Name: CommonSubnetA-prepared
   CommonSubnetB:
     Description: The id of the common subnet in zone B
     Value: !Ref CommonSubnetB
     Export:
-      Name: CommonSubnetB
+      Name: CommonSubnetB-prepared
