@@ -131,9 +131,3 @@ Resources:
       VPCZoneIdentifier:
         - "Fn::ImportValue": CommonSubnetA
         - "Fn::ImportValue": CommonSubnetB
-Outputs:
-  SimpleInstanceSecurityGroup:
-    Description: The security group of the Simple
-    Value: !Ref SimpleInstanceSecurityGroup
-    Export:
-      Name: SimpleInstanceSecurityGroup

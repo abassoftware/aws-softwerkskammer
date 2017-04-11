@@ -1,0 +1,143 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'The AWS stack for a simple service'
+Resources:
+  ELBSecurityGroup:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      GroupDescription: Enable HTTP from anywhere
+      VpcId:
+        "Fn::ImportValue": VPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: '80'
+          ToPort: '80'
+          CidrIp: 0.0.0.0/0
+  LoadBalancer:
+    Type: 'AWS::ElasticLoadBalancingV2::LoadBalancer'
+    Properties:
+      Scheme: internet-facing
+      Subnets:
+        - "Fn::ImportValue": CommonSubnetA
+        - "Fn::ImportValue": CommonSubnetB
+      SecurityGroups:
+        - !Ref ELBSecurityGroup
+  HTTPTargetGroup:
+    Type: 'AWS::ElasticLoadBalancingV2::TargetGroup'
+    DependsOn:
+      - LoadBalancer
+    Properties:
+      HealthCheckIntervalSeconds: 6
+      HealthCheckTimeoutSeconds: 5
+      HealthyThresholdCount: 2
+      UnhealthyThresholdCount: 5
+      HealthCheckPath: /
+      Matcher:
+        HttpCode: '200'
+      Protocol: HTTP
+      Port: 80
+      VpcId:
+        "Fn::ImportValue": VPC
+  HTTPListener:
+    Type : 'AWS::ElasticLoadBalancingV2::Listener'
+    DependsOn:
+      - LoadBalancer
+      - HTTPTargetGroup
+    Properties:
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref HTTPTargetGroup
+      LoadBalancerArn: !Ref LoadBalancer
+      Port: 80
+      Protocol: HTTP
+
+  CloudFormationLogs:
+    Type: 'AWS::Logs::LogGroup'
+    Properties:
+      RetentionInDays: 7
+
+  TaskDefinitionRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - ecs-tasks.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      Path: /
+      Policies:
+        - PolicyName: service-policy
+          PolicyDocument:
+            Statement:
+              - Effect: Allow
+                Action:
+                  - 's3:*'
+                Resource: !Sub "arn:aws:s3:::*"
+
+  TaskDefinition:
+    Type: "AWS::ECS::TaskDefinition"
+    Properties:
+      TaskRoleArn: !Ref TaskDefinitionRole
+      ContainerDefinitions:
+        - Name: simple-nginx
+          Memory: 256
+          MemoryReservation: 128
+          Image: nginx
+          Cpu: 10
+          PortMappings:
+            - ContainerPort: 80
+          Essential: true
+          LogConfiguration:
+             LogDriver: awslogs
+             Options:
+                awslogs-group: !Sub ${CloudFormationLogs}
+                awslogs-region: !Sub ${AWS::Region}
+                awslogs-stream-prefix: nginx
+  Service:
+    Type: 'AWS::ECS::Service'
+    DependsOn:
+      - HTTPListener
+    Properties:
+      Cluster:
+        "Fn::ImportValue": EcsCluster
+      DesiredCount: '1'
+      LoadBalancers:
+        - ContainerName: simple-nginx
+          ContainerPort: '80'
+          TargetGroupArn: !Ref HTTPTargetGroup
+      Role: !Ref ServiceRole
+      TaskDefinition: !Ref TaskDefinition
+
+  ServiceRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - ecs.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      Path: /
+      Policies:
+        - PolicyName: ecs-service
+          PolicyDocument:
+            Statement:
+              - Effect: Allow
+                Action:
+                  - 'elasticloadbalancing:*'
+                  - 'ec2:Describe*'
+                  - 'ec2:AuthorizeSecurityGroupIngress'
+                Resource: '*'
+  SecurityGroupIngress:
+    Type: "AWS::EC2::SecurityGroupIngress"
+    Properties:
+      GroupId:
+        "Fn::ImportValue": EcsInstanceSecurityGroup
+      SourceSecurityGroupId: !Ref ELBSecurityGroup
+      IpProtocol: tcp
+      FromPort: '1'
+      ToPort: '65535'
