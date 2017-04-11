@@ -1,0 +1,139 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'The AWS stack for the a simple auto scaling group'
+Mappings:
+  RegionMapping:
+    us-east-1:
+      AmazonLinuxAmi: ami-0b33d91d
+    us-west-1:
+      AmazonLinuxAmi: ami-165a0876
+    eu-central-1:
+      AmazonLinuxAmi: ami-af0fc0c0
+Resources:
+  CloudFormationLogs:
+    Type: 'AWS::Logs::LogGroup'
+    Properties:
+      RetentionInDays: 7
+  #
+  # Simple host
+  #
+  SimpleLaunchConfig:
+    Type: "AWS::AutoScaling::LaunchConfiguration"
+    Metadata:
+      AWS::CloudFormation::Init:
+        configSets:
+          install_all:
+            - install_logs
+        install_logs:
+          files:
+            /etc/awslogs/awscli.conf:
+              content: !Sub |
+                [plugins]
+                cwlogs = cwlogs
+                [default]
+                region = ${AWS::Region}
+            /etc/awslogs/awslogs.conf:
+              content: !Sub |
+                [general]
+                state_file = /var/lib/awslogs/agent-state
+              mode: "000644"
+              owner: "root"
+              group: "root"
+            /etc/awslogs/config/messages.conf:
+              content: !Sub |
+                [/var/log/messages]
+                datetime_format = %b %d %H:%M:%S
+                file = /var/log/messages
+                buffer_duration = 5000
+                log_stream_name = /var/log/messages
+                initial_position = start_of_file
+                log_group_name = ${CloudFormationLogs}
+              mode: "000644"
+              owner: "root"
+              group: "root"
+          services:
+            sysvinit:
+              awslogs:
+                enabled: "true"
+                ensureRunning: "true"
+    Properties:
+      ImageId: !FindInMap [RegionMapping, !Ref "AWS::Region", AmazonLinuxAmi]
+      InstanceType: t2.nano
+      IamInstanceProfile:
+        !Ref SimpleInstanceProfile
+      SecurityGroups:
+        - !Ref SimpleInstanceSecurityGroup
+      UserData:
+        "Fn::Base64": !Sub |
+            #!/bin/bash -x
+            yum install -y awslogs
+            yum update -y aws-cfn-bootstrap
+            sudo -u ec2-user touch ~ec2-user/.ssh/authorized_keys
+            sudo -u ec2-user echo "ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEAtkTdouonHcdzKcJtH5EToInv7AcM8ziXx/qWGFcwI+bdIrbhxp3A16ZCq8AfNc4BWuE96O6mK8lvZen9Kz3DJBvoFeGnyH12Mu1uGq6NwGUOugIbSoRtDaGjc2AXIoa7xDkGGevlc/BHuCtWhREUfqc1XxqzarGRQI6R/R4v8nhk4b8O3uQg9CWzkuiNwcJjIagqWwyKl12WGYZN+IzlxZwLdxp8P7d572EXgwp1l4DSCTTBXVnH3xuuQp6H89NswPrCruxRTM3Ojsb9GYay4UkK/IBzondPyD5umetxbERNR1RGjIygRq2LY9b+TpjQpWFYIDYcDD/0MwYxVR5avQ== volker@pig" >> ~ec2-user/.ssh/authorized_keys
+            sudo -u ec2-user echo "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDCRvsdY39t0IeFwuMD/tCFm2mkstRRn22OiiArGSoc/gqr+ZMFphs5/4uxDcaBYdXHctQSM920rDYQNGm92hgphQUf87RB3X9qZnS7I8kvomJHwE0aFVoxap5jUV33iJqYO6Wdx/LW6ye3QPXrYDeVXhWbsOYvwHujR2ic6A5L/ldLQN3oSWfDx77Pazfg/MjGOZN9QJxb3oh4DidRvXON+l6rv8b9udfDG2A/xDnzu7VPuibZRdg9l+tW0TJ7SY+87V6CovB9GfGBNe9jdPyiqk+tbo0Sdeb/Pi9Iojm2DYJL6LwYvFx4d8+KOzBlAFRC5zMRsQCf0U83qcHJlgZn volker@temp-deb-box" >> ~ec2-user/.ssh/authorized_keys
+            #Launch the cfn-init process from above
+            /opt/aws/bin/cfn-init -v --stack ${AWS::StackName} --resource SimpleLaunchConfig --configsets install_all --region ${AWS::Region}
+  SimpleInstanceSecurityGroup:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      GroupDescription: Enable SSH access from anywhere
+      VpcId:
+        "Fn::ImportValue": VPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: '22'
+          ToPort: '22'
+          CidrIp: 0.0.0.0/0
+  SimpleInstanceProfile:
+    Type: 'AWS::IAM::InstanceProfile'
+    Properties:
+      Path: /
+      Roles:
+        - !Ref SimpleInstanceRole
+  SimpleInstanceRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - ec2.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      Path: /
+      Policies:
+        - PolicyName: SimpleInstancePolicy
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - "logs:CreateLogStream"
+                  - "logs:PutLogEvents"
+                  - "logs:CreateLogGroup"
+                  - "logs:DescribeLogStreams"
+                Resource: "*" # TODO: limit to hosted zone
+  SimpleAutoScalingGroup:
+    Type: "AWS::AutoScaling::AutoScalingGroup"
+    Properties:
+      LaunchConfigurationName:
+        !Ref SimpleLaunchConfig
+      MinSize: 1
+      MaxSize: 2 # At least 2 to be able to update
+      Tags:
+        - Key: role
+          Value: Simple
+          PropagateAtLaunch: true
+        - Key: Name
+          Value: Simple
+          PropagateAtLaunch: true
+      VPCZoneIdentifier:
+        - "Fn::ImportValue": CommonSubnetA
+        - "Fn::ImportValue": CommonSubnetB
+Outputs:
+  SimpleInstanceSecurityGroup:
+    Description: The security group of the Simple
+    Value: !Ref SimpleInstanceSecurityGroup
+    Export:
+      Name: SimpleInstanceSecurityGroup
