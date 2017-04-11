@@ -1,0 +1,20 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Simple EC2 instance
+Resources:
+  MyEC2Instance:
+    Type: 'AWS::EC2::Instance'
+    Properties:
+      ImageId: ami-af0fc0c0 # AmazonLinuxAmi in eu-central-1
+      InstanceType: t2.nano
+      SecurityGroupIds:
+        - !GetAtt [ MyEC2InstanceSecurityGroup, GroupId ]
+
+  MyEC2InstanceSecurityGroup:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      GroupDescription: Enable SSH access from anywhere
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: '22'
+          ToPort: '22'
+          CidrIp: 0.0.0.0/0
