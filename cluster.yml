@@ -1,0 +1,119 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'The AWS stack for a ECS cluster'
+Mappings:
+  RegionMapping:
+    us-east-1:
+      ecsAmi: ami-275ffe31
+    us-west-1:
+      ecsAmi: ami-689bc208
+    eu-central-1:
+      ecsAmi: ami-085e8a67
+Resources:
+  #
+  # ECS cluster
+  #
+  Cluster:
+    Type: "AWS::ECS::Cluster"
+  EcsLaunchConfig:
+    Type: "AWS::AutoScaling::LaunchConfiguration"
+    DependsOn:
+      - Cluster
+    Properties:
+      ImageId: !FindInMap [RegionMapping, !Ref "AWS::Region", ecsAmi]
+      InstanceType: t2.nano
+      IamInstanceProfile: !Ref EcsInstanceProfile
+      SecurityGroups:
+        - !Ref EcsInstanceSecurityGroup
+      UserData:
+        "Fn::Base64": !Sub
+          - |
+            #!/bin/bash -xe
+            sudo -u ec2-user touch ~ec2-user/.ssh/authorized_keys
+            sudo -u ec2-user echo "ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEAtkTdouonHcdzKcJtH5EToInv7AcM8ziXx/qWGFcwI+bdIrbhxp3A16ZCq8AfNc4BWuE96O6mK8lvZen9Kz3DJBvoFeGnyH12Mu1uGq6NwGUOugIbSoRtDaGjc2AXIoa7xDkGGevlc/BHuCtWhREUfqc1XxqzarGRQI6R/R4v8nhk4b8O3uQg9CWzkuiNwcJjIagqWwyKl12WGYZN+IzlxZwLdxp8P7d572EXgwp1l4DSCTTBXVnH3xuuQp6H89NswPrCruxRTM3Ojsb9GYay4UkK/IBzondPyD5umetxbERNR1RGjIygRq2LY9b+TpjQpWFYIDYcDD/0MwYxVR5avQ== volker@pig" >> ~ec2-user/.ssh/authorized_keys
+
+            #configure cluster
+            echo ECS_CLUSTER=${ClusterName} > /etc/ecs/ecs.config
+            # restart ecs to apply new config
+            stop ecs; start ecs
+
+          - ClusterName:
+              !Ref Cluster
+  EcsInstanceSecurityGroup:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      GroupDescription: Enable SSH access from anywhere
+      VpcId:
+        "Fn::ImportValue": VPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: '22'
+          ToPort: '22'
+          CidrIp: 0.0.0.0/0
+  EcsInstanceProfile:
+    Type: 'AWS::IAM::InstanceProfile'
+    Properties:
+      Path: /
+      Roles:
+        - !Ref EcsInstanceRole
+  EcsInstanceRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - ec2.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      Policies:
+        - PolicyName: EcsInstancePolicy
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Action:
+                  - "route53:ChangeResourceRecordSets"
+                  - "route53:GetHostedZone"
+                  - "route53:ListHostedZones"
+                  - "route53:ListResourceRecordSets"
+                  - "logs:CreateLogStream"
+                  - "logs:PutLogEvents"
+                  - "logs:CreateLogGroup"
+                Effect: Allow
+                Resource: "*"
+      Path: /
+      ManagedPolicyArns:
+        - "arn:aws:iam::aws:policy/service-role/AmazonEC2ContainerServiceforEC2Role"
+  EcsAutoScalingGroup:
+    Type: "AWS::AutoScaling::AutoScalingGroup"
+    Properties:
+      LaunchConfigurationName:
+        !Ref EcsLaunchConfig
+      MinSize: 1
+      MaxSize: 4
+      DesiredCapacity: 2
+      Tags:
+        - Key: role
+          Value: prepared-ecs
+          PropagateAtLaunch: true
+        - Key: Name
+          Value: prepared-ecs
+          PropagateAtLaunch: true
+      VPCZoneIdentifier:
+        - "Fn::ImportValue": CommonSubnetA
+        - "Fn::ImportValue": CommonSubnetB
+    UpdatePolicy:
+      AutoScalingRollingUpdate:
+        MaxBatchSize: 1
+Outputs:
+  Cluster:
+    Description: The id of the ECS cluster
+    Value: !Ref Cluster
+    Export:
+      Name: EcsCluster
+  EcsInstanceSecurityGroup:
+    Description: The securtiy group of a ECS instance
+    Value: !Ref EcsInstanceSecurityGroup
+    Export:
+      Name: EcsInstanceSecurityGroup

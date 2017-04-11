@@ -123,17 +123,11 @@ Resources:
       MaxSize: 2 # At least 2 to be able to update
       Tags:
         - Key: role
-          Value: Simple
+          Value: prepared-Simple
           PropagateAtLaunch: true
         - Key: Name
-          Value: Simple
+          Value: prepared-Simple
           PropagateAtLaunch: true
       VPCZoneIdentifier:
         - "Fn::ImportValue": CommonSubnetA-prepared
         - "Fn::ImportValue": CommonSubnetB-prepared
-Outputs:
-  SimpleInstanceSecurityGroup:
-    Description: The security group of the Simple
-    Value: !Ref SimpleInstanceSecurityGroup
-    Export:
-      Name: SimpleInstanceSecurityGroup-prepared
