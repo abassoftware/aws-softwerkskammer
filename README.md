@@ -2,6 +2,13 @@ Go to AWS Console and create a role 'Admin' with all the needed access rights.
 
 Install [AWS Command Line Interface](http://docs.aws.amazon.com/cli/latest/userguide/installing.html).
 
+Create a file ~/.aws/credentials with the following content:
+```
+[default]
+aws_access_key_id = <your access key>
+aws_secret_access_key = <your secret>
+```
+
 Create a file ~/.aws/config with the following profile:
 ```
 [profile softwerkskammer]
