@@ -19,36 +19,20 @@ source_profile = default
 
 Create the infrastructure stack:
 ```
-aws cloudformation create-stack --capabilities CAPABILITY_IAM --stack-name infrastructure --template-body file://infrastructure.yml --region eu-central-1 --profile softwerkskammer
-```
-Or update (if already exists):
-```
-aws cloudformation update-stack --capabilities CAPABILITY_IAM --stack-name infrastructure --template-body file://infrastructure.yml --region eu-central-1 --profile softwerkskammer
+aws cloudformation deploy --capabilities CAPABILITY_IAM --stack-name infrastructure --template-file ./infrastructure.yml --region eu-central-1 --profile softwerkskammer
 ```
 
 Create a simple auto scaling group:
 ```
-aws cloudformation create-stack --capabilities CAPABILITY_IAM --stack-name autoscalinggroup --template-body file://simpleAutoscalingGroup.yml --region eu-central-1 --profile softwerkskammer
-```
-Or update (if already exists):
-```
-aws cloudformation update-stack --capabilities CAPABILITY_IAM --stack-name autoscalinggroup --template-body file://simpleAutoscalingGroup.yml --region eu-central-1 --profile softwerkskammer
+aws cloudformation deploy --capabilities CAPABILITY_IAM --stack-name autoscalinggroup --template-file ./simpleAutoscalingGroup.yml --region eu-central-1 --profile softwerkskammer
 ```
 
 Create an ECS Cluster:
 ```
-aws cloudformation create-stack --capabilities CAPABILITY_IAM --stack-name ecscluster --template-body file://cluster.yml --region eu-central-1 --profile softwerkskammer
-```
-Or update (if already exists):
-```
-aws cloudformation update-stack --capabilities CAPABILITY_IAM --stack-name ecscluster --template-body file://cluster.yml --region eu-central-1 --profile softwerkskammer
+aws cloudformation deploy --capabilities CAPABILITY_IAM --stack-name ecscluster --template-file ./cluster.yml --region eu-central-1 --profile softwerkskammer
 ```
 
 Create a service in the ECS Cluster:
 ```
-aws cloudformation create-stack --capabilities CAPABILITY_IAM --stack-name service --template-body file://service.yml --region eu-central-1 --profile softwerkskammer
-```
-Or update (if already exists):
-```
-aws cloudformation update-stack --capabilities CAPABILITY_IAM --stack-name service --template-body file://service.yml --region eu-central-1 --profile softwerkskammer
+aws cloudformation deploy --capabilities CAPABILITY_IAM --stack-name service --template-file ./service.yml --region eu-central-1 --profile softwerkskammer
 ```
